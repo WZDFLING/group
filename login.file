@@ -1,0 +1,76 @@
+// app.js  
+const express = require('express');  
+const bodyParser = require('body-parser');  
+const app = express();  
+const PORT = process.env.PORT || 3000;  
+// 使用body-parser中间件解析JSON请求体  
+app.use(bodyParser.json());  
+app.post('/login', (req, res) => {  
+    const { username, password } = req.body;  
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // 邮箱正则表达式  
+    // 验证逻辑  
+    if (!username) {  
+        return res.status(400).json({ error: "用户名/邮箱不能为空！" });  
+    }  
+    if (!emailPattern.test(username)) {  
+        return res.status(400).json({ error: "请输入有效的邮箱格式。" });  
+    }  
+    if (!password) {  
+        return res.status(400).json({ error: "密码不能为空！" });  
+    }  
+    // 此处可以添加进一步的验证逻辑，比如检查用户是否存在等  
+    // 验证通过  
+    return res.status(200).json({ message: "登录成功！" });  
+});  
+app.listen(PORT, () => {  
+    console.log(`服务器正在运行在 http://localhost:${PORT}`);  
+});
+2. 编写测试用例
+// test/login.test.js  
+const chai = require('chai');  
+const chaiHttp = require('chai-http');  
+const app = require('../app.js'); // 引入你的主应用文件  
+const expect = chai.expect;  
+chai.use(chaiHttp);  
+describe('登录API测试', function() {  
+    it('应返回错误：用户名/邮箱不能为空', function(done) {  
+        chai.request(app)  
+            .post('/login')  
+            .send({ username: "", password: "password123" })  
+            .end(function(err, res) {  
+                expect(res).to.have.status(400);  
+                expect(res.body.error).to.equal("用户名/邮箱不能为空！");  
+                done();  
+            });  
+    });  
+    it('应返回错误：密码不能为空', function(done) {  
+        chai.request(app)  
+            .post('/login')  
+            .send({ username: "user@example.com", password: "" })  
+            .end(function(err, res) {  
+                expect(res).to.have.status(400);  
+                expect(res.body.error).to.equal("密码不能为空！");  
+                done();  
+            });  
+    });  
+    it('应返回错误：邮箱格式无效', function(done) {  
+        chai.request(app)  
+            .post('/login')  
+            .send({ username: "invalidEmail", password: "password123" })  
+            .end(function(err, res) {  
+                expect(res).to.have.status(400);  
+                expect(res.body.error).to.equal("请输入有效的邮箱格式。");  
+                done();  
+            });  
+    });  
+    it('应返回成功：验证通过', function(done) {  
+        chai.request(app)  
+            .post('/login')  
+            .send({ username: "user@example.com", password: "password123" })  
+            .end(function(err, res) {  
+                expect(res).to.have.status(200);  
+                expect(res.body.message).to.equal("登录成功！");  
+                done();  
+            });  
+    });  
+});  
