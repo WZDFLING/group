@@ -1,0 +1,65 @@
+/**
+ * 演示上传
+ */
+@RequestMapping("upload")
+public Result upload(MultipartFile file,Long id) {
+    try {
+        if(file!=null){
+            CarParkManage carParkManage =
+                    parkManageRepository.findById(id).orElse(new CarParkManage());
+            if(id==null||carParkManage==null){
+                return Result.error("请选择停车场");
+            }
+            File parentFile = CommonUtils.createParentFile(filePath);
+            String fileName = file.getOriginalFilename();
+            String suffix = fileName.substring(fileName.lastIndexOf("."));
+            String uuid = IdUtil.simpleUUID();
+            fileName = uuid + suffix;
+            File imageFile = new File(parentFile,fileName);
+            FileUtil.writeFromStream(file.getInputStream(), imageFile);
+            String fileDay = DateUtil.thisYear()+"/"+(DateUtil.thisMonth()+1)+"/"+DateUtil.thisDayOfMonth();
+            String imagePath = SystemConstant.FILE + "/" + fileDay+"/"+fileName;
+            String plateNumber = baiDuUtils.plateLicense(imageFile.getAbsolutePath());
+            if(StringUtils.isBlank(plateNumber)){
+                return Result.error("识别失败");
+            }
+            Map<String, Object> map = new HashMap<>();
+            map.put("plateNumber",plateNumber);
+            map.put("imagePath",imagePath);
+
+            CarParkingRecord record =
+                    carParkingRecordService.getByPlateNumber(plateNumber,id);
+            /**
+             * 出厂
+             */
+            if(record!=null){
+                record.setCost(CostUtils.calculate(record,carParkManage));
+                record.setGmtOut(DateUtils.getTimestamp());
+                map.put("msg","出厂成功");
+            }else{
+                record = new CarParkingRecord();
+                record.setOrgId(carParkManage.getOrgId());
+                record.setOrgName(carParkManage.getOrgName());
+                record.setParkManageId(carParkManage.getId());
+                record.setParkManageName(carParkManage.getName());
+                record.setGmtInto(DateUtils.getTimestamp());
+                record.setPlateNumber(plateNumber);
+                CarManage carManage =
+                        carManageService.getByPlateNumber(plateNumber,id);
+                if(carManage!=null){
+                    record.setType(carManage.getType());
+                }else{
+                    record.setType(SystemConstant.CAR_TYPE_TEMP);
+                }
+                map.put("msg","进厂成功");
+            }
+            carParkingRecordService.save(record);
+            return Result.ok(map);
+        }else{
+            return Result.error();
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        return Result.error();
+    }
+}
